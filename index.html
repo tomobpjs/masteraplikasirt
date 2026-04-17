@@ -13,6 +13,7 @@ import {
   getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithCustomToken 
 } from 'firebase/auth';
 
+// Konfigurasi Firebase
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
   ? JSON.parse(__firebase_config) 
   : {
@@ -24,6 +25,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
       appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b"
     };
 
+// Inisialisasi Firebase
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -38,12 +40,11 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({ title: '', url: '', category: 'UMUM', description: '' });
   const [inputPassword, setInputPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
 
+  // Efek untuk Otentikasi
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -64,6 +65,7 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
+  // Efek untuk Mengambil Data Firestore
   useEffect(() => {
     if (!user || !isAuthenticated) return;
     const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'links');
@@ -97,74 +99,174 @@ const App = () => {
       setFormData({ title: '', url: '', category: 'UMUM', description: '' });
       setEditingId(null);
       setIsModalOpen(false);
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    }
   };
 
+  // Tampilan Login (Vault)
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#050507] flex items-center justify-center p-6 text-white font-sans">
         <div className="w-full max-w-sm space-y-8 text-center">
           <div className="mx-auto w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl">
-            <Lock className="w-10 h-10" />
+            <Lock className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Vault Lock</h1>
+          <div>
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter">Vault Lock</h1>
+            <p className="text-slate-500 text-sm mt-2">Masukkan kunci akses untuk melanjutkan</p>
+          </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <input 
               type="password" 
               placeholder="Masukkan Password..." 
               value={inputPassword}
               onChange={(e) => setInputPassword(e.target.value)}
-              className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500"
+              className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 transition-all text-center tracking-widest"
             />
-            {loginError && <p className="text-rose-500 text-xs font-bold">{loginError}</p>}
-            <button className="w-full py-4 bg-blue-600 rounded-2xl font-black uppercase tracking-widest">Buka Vault</button>
+            {loginError && <p className="text-rose-500 text-xs font-bold animate-pulse">{loginError}</p>}
+            <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase tracking-widest transition-all">
+              Buka Vault
+            </button>
           </form>
         </div>
       </div>
     );
   }
 
+  // Dashboard Utama
   return (
-    <div className="min-h-screen bg-[#050507] text-slate-200 p-8">
+    <div className="min-h-screen bg-[#050507] text-slate-200 p-4 md:p-8 font-sans">
       <header className="max-w-6xl mx-auto flex justify-between items-center mb-12">
-        <h1 className="text-2xl font-black text-white italic">METALINK</h1>
-        <button onClick={() => setIsAuthenticated(false)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500"><LogOut size={20} /></button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <ShieldCheck size={18} className="text-white" />
+          </div>
+          <h1 className="text-xl font-black text-white italic tracking-tighter">METALINK</h1>
+        </div>
+        <button 
+          onClick={() => setIsAuthenticated(false)} 
+          className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
+          title="Keluar"
+        >
+          <LogOut size={20} />
+        </button>
       </header>
+
       <main className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-end mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
           <div>
             <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Dashboard</h2>
-            <p className="text-slate-500 text-sm italic">Akses aset digital terenkripsi Anda.</p>
+            <p className="text-slate-500 text-sm italic">Kelola aset tautan digital terenkripsi Anda secara aman.</p>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black px-6 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition-all">TAMBAH LINK</button>
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition-all shadow-lg shadow-white/5"
+          >
+            TAMBAH LINK
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {links.map(link => (
-            <div key={link.id} className="bg-white/5 border border-white/10 p-6 rounded-3xl hover:border-blue-500/50 transition-all group">
-              <div className="flex justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-500 font-bold">{link.title.charAt(0)}</div>
-                <button onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', link.id))} className="text-slate-600 hover:text-rose-500"><Trash2 size={16} /></button>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+            <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+            <p className="text-slate-500 font-bold tracking-widest text-xs uppercase">Mengambil Data...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {links.length === 0 && (
+              <div className="col-span-full border-2 border-dashed border-white/5 rounded-3xl p-12 text-center">
+                <p className="text-slate-600 italic">Belum ada link yang tersimpan di vault ini.</p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">{link.title}</h3>
-              <p className="text-sm text-slate-500 mb-6 h-10 overflow-hidden italic line-clamp-2">{link.description}</p>
-              <a href={link.url} target="_blank" rel="noreferrer" className="block w-full py-3 bg-white/5 group-hover:bg-blue-600 rounded-xl text-center text-sm font-bold transition-all">BUKA TAUTAN</a>
-            </div>
-          ))}
-        </div>
+            )}
+            {links.map(link => (
+              <div key={link.id} className="bg-white/5 border border-white/10 p-6 rounded-[2rem] hover:border-blue-500/50 hover:bg-white/[0.07] transition-all group relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500 font-black text-xl border border-blue-500/20">
+                    {link.title.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', link.id))} 
+                      className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-lg"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{link.title}</h3>
+                <p className="text-sm text-slate-500 mb-6 h-10 overflow-hidden italic line-clamp-2 leading-relaxed">
+                  {link.description || "Tidak ada deskripsi tersedia untuk tautan ini."}
+                </p>
+                <a 
+                  href={link.url} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 group-hover:bg-blue-600 rounded-2xl text-center text-sm font-black tracking-widest transition-all"
+                >
+                  BUKA TAUTAN <ChevronRight size={16} />
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
 
+      {/* Modal Input Tautan */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0d0d12] w-full max-w-md rounded-[32px] p-8 border border-white/10">
-            <h2 className="text-2xl font-black text-white mb-6 italic">TAMBAH ASET</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input required placeholder="Nama Link" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-              <input required placeholder="URL (https://...)" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} />
-              <textarea placeholder="Deskripsi Singkat" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500 h-24" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-              <div className="flex gap-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-white/5 rounded-xl font-bold">BATAL</button>
-                <button type="submit" className="flex-1 py-4 bg-blue-600 rounded-xl font-bold">SIMPAN</button>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0d0d12] w-full max-w-md rounded-[2.5rem] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Tambah Aset</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Label Link</label>
+                <input 
+                  required 
+                  placeholder="Contoh: GitHub Repository" 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all" 
+                  value={formData.title} 
+                  onChange={e => setFormData({...formData, title: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Alamat URL</label>
+                <input 
+                  required 
+                  type="url"
+                  placeholder="https://..." 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all font-mono text-sm" 
+                  value={formData.url} 
+                  onChange={e => setFormData({...formData, url: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Deskripsi (Opsional)</label>
+                <textarea 
+                  placeholder="Apa isi dari link ini?" 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all h-28 resize-none" 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})} 
+                />
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black uppercase tracking-widest transition-all text-xs"
+                >
+                  BATAL
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase tracking-widest transition-all text-xs shadow-lg shadow-blue-600/20"
+                >
+                  SIMPAN
+                </button>
               </div>
             </form>
           </div>
