@@ -13,9 +13,11 @@ import {
   getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithCustomToken 
 } from 'firebase/auth';
 
-// Konfigurasi Firebase menggunakan variabel global lingkungan
-const firebaseConfig = {
-  apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
+// Menggunakan konfigurasi dinamis dari lingkungan sistem (MANDATORY)
+const firebaseConfig = typeof __firebase_config !== 'undefined' 
+  ? JSON.parse(__firebase_config) 
+  : {
+      apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
   authDomain: "sarpras-846ad.firebaseapp.com",
   projectId: "sarpras-846ad",
   storageBucket: "sarpras-846ad.firebasestorage.app",
@@ -23,7 +25,6 @@ const firebaseConfig = {
   appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
   measurementId: "G-2DPVT5MLE5"
 };
-
 // Inisialisasi Firebase
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -34,7 +35,6 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +42,7 @@ const App = () => {
   const [inputPassword, setInputPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Auth Listener & Initialization
+  // Auth Listener & Initialization - Sesuai RULE 3
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -64,14 +64,15 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  // Firestore Listener
+  // Firestore Listener - Sesuai RULE 1 & 2
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     
-    // Sesuai RULE 1: Menggunakan path /artifacts/{appId}/users/{userId}/{collectionName}
+    // Path: /artifacts/{appId}/users/{userId}/{collectionName}
     const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'links');
     
+    // Snapshot dengan error callback untuk debugging
     const unsubscribe = onSnapshot(query(colRef), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLinks(data);
@@ -93,7 +94,7 @@ const App = () => {
         await signInAnonymously(auth);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Login Error:", err);
     } finally {
       setIsLoggingIn(false);
     }
@@ -110,7 +111,7 @@ const App = () => {
       await setDoc(docRef, { ...formData, updatedAt: new Date().toISOString() }, { merge: true });
       resetForm();
     } catch (err) {
-      console.error(err);
+      console.error("Save Error:", err);
     }
   };
 
@@ -125,7 +126,7 @@ const App = () => {
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
     } catch (err) {
-      console.error(err);
+      console.error("Delete Error:", err);
     }
   };
 
@@ -133,113 +134,133 @@ const App = () => {
     l.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Tampilan Login
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#050507] flex items-center justify-center p-6 text-slate-200">
-        <div className="w-full max-w-sm space-y-8 text-center animate-in fade-in zoom-in duration-500">
-          <div className="mx-auto w-20 h-20 bg-blue-600/20 rounded-3xl flex items-center justify-center border border-blue-500/30">
-            <ShieldCheck className="text-blue-400 w-10 h-10" />
+      <div className="min-h-screen bg-[#050507] flex items-center justify-center p-6 text-slate-200 font-sans">
+        <div className="w-full max-w-sm space-y-8 text-center animate-in fade-in zoom-in duration-700">
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-blue-500/20 rotate-3 hover:rotate-0 transition-transform border border-white/10">
+            <ShieldCheck className="text-white w-12 h-12" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black tracking-tight text-white">META<span className="text-blue-500">LINK</span></h1>
-            <p className="text-slate-500 text-sm">Masukkan akses untuk membuka vault digital.</p>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic">VAULT ACCESS</h1>
+            <p className="text-slate-500 text-sm font-medium">Dekripsi otorisasi untuk membuka vault digital.</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
-              <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <div className="relative group">
+              <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-blue-500 transition-colors" size={20} />
               <input 
                 type="password" 
-                placeholder="Kata Sandi..." 
+                placeholder="Masukkan Kode Otorisasi..." 
                 value={inputPassword}
                 onChange={(e) => setInputPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500/50"
+                className="w-full pl-12 pr-4 py-4 bg-white/[0.03] border border-white/10 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-white placeholder:text-slate-600"
               />
             </div>
             <button 
               disabled={isLoggingIn}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30"
             >
-              {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={18} />} Buka Vault
+              {isLoggingIn ? <Loader2 className="animate-spin" /> : <LogIn size={20} />} INISIASI AKSES
             </button>
           </form>
+          <div className="pt-8 flex items-center justify-center gap-6 text-slate-600">
+             <div className="flex flex-col items-center gap-1">
+                <Cloud size={16} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Live Sync</span>
+             </div>
+             <div className="w-px h-8 bg-white/5"></div>
+             <div className="flex flex-col items-center gap-1">
+                <Box size={16} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Encrypted</span>
+             </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050507] text-slate-200 p-8 pb-32">
-      {/* Header */}
-      <header className="max-w-6xl mx-auto flex items-center justify-between mb-12">
+    <div className="min-h-screen bg-[#050507] text-slate-200 p-4 md:p-8 pb-32 font-sans selection:bg-blue-500/30">
+      <header className="max-w-6xl mx-auto flex items-center justify-between mb-16">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white">M</div>
-          <h1 className="text-xl font-bold tracking-tighter">METALINK <span className="text-blue-500 text-xs">VAULT</span></h1>
+          <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center font-black text-white shadow-lg shadow-blue-600/20 text-xl">M</div>
+          <div>
+            <h1 className="text-xl font-black tracking-tighter text-white">METALINK</h1>
+            <div className="flex items-center gap-2">
+               <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+               <span className="text-[10px] font-bold text-slate-500 tracking-[0.2em] uppercase">Secure Vault v1.1</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+        <div className="flex items-center gap-3">
+          <div className="hidden lg:flex relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
             <input 
               type="text" 
-              placeholder="Cari..." 
+              placeholder="Cari aset..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:border-blue-500/50"
+              className="bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-2.5 text-sm outline-none focus:border-blue-500/50 w-64 transition-all focus:w-80"
             />
           </div>
-          <button onClick={handleLogout} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"><LogOut size={20} /></button>
+          <button onClick={handleLogout} className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-2xl transition-all">
+            <LogOut size={22} />
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-4xl font-black text-white">Halo, Admin</h2>
-            <p className="text-slate-500">Anda memiliki {links.length} aset tersimpan.</p>
-            <p className="text-[10px] text-slate-600 mt-1 uppercase tracking-widest font-mono">User ID: {user.uid}</p>
+      <main className="max-w-6xl mx-auto space-y-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-2">
+            <h2 className="text-5xl font-black text-white tracking-tighter italic uppercase">Dashboard</h2>
+            <div className="flex items-center gap-3 text-sm">
+              <p className="text-slate-500">Terdapat <span className="text-blue-500 font-bold">{links.length}</span> aset tersimpan aman.</p>
+              <div className="px-2 py-0.5 bg-white/5 rounded font-mono text-slate-600">ID: {user.uid.substring(0,8)}</div>
+            </div>
           </div>
           <button 
             onClick={() => { resetForm(); setIsModalOpen(true); }}
-            className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20"
+            className="bg-white text-black hover:bg-blue-600 hover:text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 shadow-xl transition-all active:scale-95 group"
           >
-            <Plus size={18} /> Tambah Link
+            <Plus size={20} className="group-hover:rotate-90 transition-transform" /> TAMBAH ASET
           </button>
         </div>
 
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-4">
-            <Loader2 className="animate-spin text-blue-500" size={40} />
-            <p className="text-slate-500 font-bold tracking-widest text-xs uppercase">Sinkronisasi Awan...</p>
+          <div className="py-32 flex flex-col items-center justify-center gap-6">
+            <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+            <p className="text-slate-500 font-black tracking-[0.4em] text-[10px] uppercase animate-pulse">Menghubungkan...</p>
           </div>
         ) : filteredLinks.length === 0 ? (
-          <div className="py-20 border-2 border-dashed border-white/5 rounded-[40px] text-center space-y-4">
+          <div className="py-24 border-2 border-dashed border-white/5 rounded-[48px] text-center space-y-6 bg-white/[0.01]">
             <Box className="mx-auto text-slate-700" size={48} />
-            <p className="text-slate-500">Belum ada link yang disimpan di vault ini.</p>
+            <p className="text-slate-400 font-bold text-xl uppercase tracking-widest">Vault Kosong</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredLinks.map(link => (
-              <div key={link.id} className="bg-white/[0.03] border border-white/10 rounded-3xl p-6 hover:border-blue-500/50 transition-all group relative overflow-hidden">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500 font-bold text-xl">
+              <div key={link.id} className="bg-white/[0.02] border border-white/10 rounded-[32px] p-8 hover:border-blue-500/40 transition-all group relative overflow-hidden backdrop-blur-sm">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="w-14 h-14 bg-blue-600/10 rounded-[20px] flex items-center justify-center text-blue-500 font-black text-2xl border border-blue-500/10">
                     {link.title.charAt(0)}
                   </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setFormData(link); setEditingId(link.id); setIsModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-slate-400"><Pencil size={14} /></button>
-                    <button onClick={() => deleteLink(link.id)} className="p-2 hover:bg-rose-500/10 rounded-lg text-rose-500"><Trash2 size={14} /></button>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => { setFormData(link); setEditingId(link.id); setIsModalOpen(true); }} className="p-2.5 hover:bg-white/10 rounded-xl text-slate-400"><Pencil size={16} /></button>
+                    <button onClick={() => deleteLink(link.id)} className="p-2.5 hover:bg-rose-500/10 rounded-xl text-rose-500"><Trash2 size={16} /></button>
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">{link.title}</h3>
-                <p className="text-xs text-blue-500 font-black uppercase tracking-widest mb-3">{link.category}</p>
-                <p className="text-sm text-slate-500 mb-6 line-clamp-2">{link.description || 'Tidak ada deskripsi.'}</p>
+                <div className="space-y-1 mb-4">
+                  <p className="text-[10px] text-blue-500 font-black uppercase tracking-[0.2em]">{link.category}</p>
+                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors truncate">{link.title}</h3>
+                </div>
+                <p className="text-sm text-slate-500 mb-8 line-clamp-2 min-h-[40px] leading-relaxed italic">"{link.description || 'Tidak ada deskripsi aset.'}"</p>
                 <a 
                   href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-bold text-white hover:text-blue-400 transition-colors"
+                  className="w-full py-4 bg-white/5 group-hover:bg-blue-600 rounded-2xl flex items-center justify-center gap-3 text-sm font-black text-white transition-all"
                 >
-                  Buka Tautan <ChevronRight size={14} />
+                  AKSES LINK <ChevronRight size={16} />
                 </a>
               </div>
             ))}
@@ -247,31 +268,42 @@ const App = () => {
         )}
       </main>
 
-      {/* Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-[#0d0d12] w-full max-w-lg rounded-[32px] border border-white/10 p-8 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-bold text-white">{editingId ? 'Edit Link' : 'Tambah Link'}</h2>
-              <button onClick={resetForm} className="text-slate-500 hover:text-white"><X /></button>
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0d0d12] w-full max-w-lg rounded-[40px] border border-white/10 p-10 shadow-2xl overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-500"></div>
+            <div className="flex justify-between items-center mb-10">
+              <h2 className="text-3xl font-black text-white tracking-tighter">{editingId ? 'EDIT ASET' : 'ASET BARU'}</h2>
+              <button onClick={resetForm} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-slate-500 hover:text-white"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nama / Label</label>
-                <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500/50" />
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Nama Tautan</label>
+                <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500/50 text-white" placeholder="Contoh: Admin Panel" />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">URL</label>
-                <input required value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-blue-500/50" placeholder="https://..." />
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Alamat URL</label>
+                <input required value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500/50 text-white" placeholder="https://..." />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Kategori</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none">
-                  <option>UMUM</option><option>PEKERJAAN</option><option>HIBURAN</option><option>BELAJAR</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Kategori</label>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none text-white appearance-none">
+                    <option className="bg-[#0d0d12]">UMUM</option>
+                    <option className="bg-[#0d0d12]">PEKERJAAN</option>
+                    <option className="bg-[#0d0d12]">HIBURAN</option>
+                    <option className="bg-[#0d0d12]">BELAJAR</option>
+                  </select>
+                </div>
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Keamanan</label>
+                   <div className="w-full bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-emerald-500 font-black text-xs flex items-center gap-2 uppercase tracking-widest">
+                      <ShieldCheck size={14} /> Encrypted
+                   </div>
+                </div>
               </div>
-              <button type="submit" className="w-full py-4 bg-blue-600 rounded-xl font-bold text-white flex items-center justify-center gap-2">
-                <CheckCircle2 size={18} /> Simpan ke Vault
+              <button type="submit" className="w-full py-5 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-white flex items-center justify-center gap-3 transition-all active:scale-95">
+                <CheckCircle2 size={20} /> SIMPAN DATA
               </button>
             </form>
           </div>
