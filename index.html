@@ -1,279 +1,298 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Trash2, Search, Pencil, X, CheckCircle2, Settings, 
-  LayoutDashboard, Box, Layers, ChevronRight, Cloud, CloudOff, 
-  Loader2, LogOut, User as UserIcon, LogIn, Key, ShieldCheck, Lock, AlertCircle 
-} from 'lucide-react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getFirestore, collection, doc, setDoc, onSnapshot, 
-  deleteDoc, query 
-} from 'firebase/firestore';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signOut, signInWithCustomToken 
-} from 'firebase/auth';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaLink Vault</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX Compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
-// Konfigurasi Firebase
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-  ? JSON.parse(__firebase_config) 
-  : {
-      apiKey: "", 
-      authDomain: "sarpras-846ad.firebaseapp.com",
-      projectId: "sarpras-846ad",
-      storageBucket: "sarpras-846ad.firebasestorage.app",
-      messagingSenderId: "1048448341234",
-      appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b"
-    };
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#050507]">
+    <div id="root"></div>
 
-// Inisialisasi Firebase
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'metalink-v1';
+    <script type="text/babel">
+        const { useState, useEffect, createElement } = React;
+        
+        // Konfigurasi Firebase
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+          ? JSON.parse(__firebase_config) 
+          : {
+              apiKey: "", 
+              authDomain: "sarpras-846ad.firebaseapp.com",
+              projectId: "sarpras-846ad",
+              storageBucket: "sarpras-846ad.firebasestorage.app",
+              messagingSenderId: "1048448341234",
+              appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b"
+            };
 
-const VAULT_PASSWORD = "admin"; 
-
-const App = () => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [links, setLinks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ title: '', url: '', category: 'UMUM', description: '' });
-  const [inputPassword, setInputPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-
-  // Efek untuk Otentikasi
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
+        // Inisialisasi Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
-      } catch (err) {
-        console.error("Auth error:", err);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) setIsAuthenticated(false);
-    });
-    return () => unsubscribe();
-  }, []);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'metalink-v1';
 
-  // Efek untuk Mengambil Data Firestore
-  useEffect(() => {
-    if (!user || !isAuthenticated) return;
-    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'links');
-    const unsubscribe = onSnapshot(query(colRef), (snapshot) => {
-      setLinks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    }, (err) => {
-      console.error("Firestore error:", err);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user, isAuthenticated]);
+        const VAULT_PASSWORD = "admin"; 
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setLoginError('');
-    if (inputPassword === VAULT_PASSWORD) {
-      setIsAuthenticated(true);
-    } else {
-      setLoginError('Kata sandi salah!');
-    }
-  };
+        // Helper untuk me-render Icon Lucide agar tidak menyebabkan Error #130
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const [iconSvg, setIconSvg] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    const id = editingId || Date.now().toString();
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'links', id);
-    try {
-      await setDoc(docRef, { ...formData, updatedAt: new Date().toISOString() }, { merge: true });
-      setFormData({ title: '', url: '', category: 'UMUM', description: '' });
-      setEditingId(null);
-      setIsModalOpen(false);
-    } catch (err) { 
-      console.error(err); 
-    }
-  };
+            useEffect(() => {
+                // Membuat icon secara dinamis menggunakan library lucide di window
+                if (window.lucide && window.lucide.icons[name]) {
+                    const icon = window.lucide.icons[name];
+                    // Gunakan lucide.createIcons atau akses properti icon
+                }
+            }, [name]);
 
-  // Tampilan Login (Vault)
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#050507] flex items-center justify-center p-6 text-white font-sans">
-        <div className="w-full max-w-sm space-y-8 text-center">
-          <div className="mx-auto w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl">
-            <Lock className="w-10 h-10 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter">Vault Lock</h1>
-            <p className="text-slate-500 text-sm mt-2">Masukkan kunci akses untuk melanjutkan</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="password" 
-              placeholder="Masukkan Password..." 
-              value={inputPassword}
-              onChange={(e) => setInputPassword(e.target.value)}
-              className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 transition-all text-center tracking-widest"
-            />
-            {loginError && <p className="text-rose-500 text-xs font-bold animate-pulse">{loginError}</p>}
-            <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase tracking-widest transition-all">
-              Buka Vault
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+            // Cara alternatif yang lebih aman untuk CDN: Menggunakan elemen i dengan data-lucide
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
 
-  // Dashboard Utama
-  return (
-    <div className="min-h-screen bg-[#050507] text-slate-200 p-4 md:p-8 font-sans">
-      <header className="max-w-6xl mx-auto flex justify-between items-center mb-12">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <ShieldCheck size={18} className="text-white" />
-          </div>
-          <h1 className="text-xl font-black text-white italic tracking-tighter">METALINK</h1>
-        </div>
-        <button 
-          onClick={() => setIsAuthenticated(false)} 
-          className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
-          title="Keluar"
-        >
-          <LogOut size={20} />
-        </button>
-      </header>
+        // Penggunaan manual SVG untuk icon yang sering digunakan guna menghindari ketergantungan script eksternal yang lambat
+        const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+        const ShieldIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>;
+        const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
+        const LogoutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
+        const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>;
+        const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>;
 
-      <main className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
-          <div>
-            <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Dashboard</h2>
-            <p className="text-slate-500 text-sm italic">Kelola aset tautan digital terenkripsi Anda secara aman.</p>
-          </div>
-          <button 
-            onClick={() => setIsModalOpen(true)} 
-            className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition-all shadow-lg shadow-white/5"
-          >
-            TAMBAH LINK
-          </button>
-        </div>
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [links, setLinks] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [formData, setFormData] = useState({ title: '', url: '', description: '' });
+            const [inputPassword, setInputPassword] = useState('');
+            const [loginError, setLoginError] = useState('');
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-            <p className="text-slate-500 font-bold tracking-widest text-xs uppercase">Mengambil Data...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {links.length === 0 && (
-              <div className="col-span-full border-2 border-dashed border-white/5 rounded-3xl p-12 text-center">
-                <p className="text-slate-600 italic">Belum ada link yang tersimpan di vault ini.</p>
-              </div>
-            )}
-            {links.map(link => (
-              <div key={link.id} className="bg-white/5 border border-white/10 p-6 rounded-[2rem] hover:border-blue-500/50 hover:bg-white/[0.07] transition-all group relative overflow-hidden">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500 font-black text-xl border border-blue-500/20">
-                    {link.title.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={async () => await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', link.id))} 
-                      className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-lg"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+            // Jalankan lucide.createIcons setelah render
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            });
+
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (err) {
+                        console.error("Auth error:", err);
+                    }
+                };
+                initAuth();
+                
+                const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+                    setUser(currentUser);
+                    if (!currentUser) setIsAuthenticated(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (!user || !isAuthenticated) return;
+                
+                const path = `artifacts/${appId}/users/${user.uid}/links`;
+                const unsubscribe = db.collection(path).onSnapshot((snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setLinks(data);
+                    setLoading(false);
+                }, (err) => {
+                    console.error("Firestore error:", err);
+                    setLoading(false);
+                });
+                
+                return () => unsubscribe();
+            }, [user, isAuthenticated]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (inputPassword === VAULT_PASSWORD) {
+                    setIsAuthenticated(true);
+                } else {
+                    setLoginError('Kata sandi salah!');
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!user) return;
+                
+                const id = Date.now().toString();
+                const path = `artifacts/${appId}/users/${user.uid}/links`;
+                
+                try {
+                    await db.collection(path).doc(id).set({
+                        ...formData,
+                        updatedAt: new Date().toISOString()
+                    });
+                    setFormData({ title: '', url: '', description: '' });
+                    setIsModalOpen(false);
+                } catch (err) {
+                    console.error("Save error:", err);
+                }
+            };
+
+            const handleDelete = async (id) => {
+                if (!user) return;
+                const path = `artifacts/${appId}/users/${user.uid}/links`;
+                try {
+                    await db.collection(path).doc(id).delete();
+                } catch (err) {
+                    console.error("Delete error:", err);
+                }
+            };
+
+            if (!isAuthenticated) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-6 text-white bg-[#050507]">
+                        <div className="w-full max-w-sm space-y-8 text-center">
+                            <div className="mx-auto w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-600/20">
+                                <LockIcon />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-black italic uppercase tracking-tighter">Vault Lock</h1>
+                                <p className="text-slate-500 text-sm mt-2">Masukkan kunci akses untuk melanjutkan</p>
+                            </div>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input 
+                                    type="password" 
+                                    placeholder="Masukkan Password..." 
+                                    value={inputPassword}
+                                    onChange={(e) => setInputPassword(e.target.value)}
+                                    className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 transition-all text-center tracking-widest text-white"
+                                />
+                                {loginError && <p className="text-rose-500 text-xs font-bold animate-pulse">{loginError}</p>}
+                                <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase tracking-widest transition-all">
+                                    Buka Vault
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen text-slate-200 p-4 md:p-8 bg-[#050507]">
+                    <header className="max-w-6xl mx-auto flex justify-between items-center mb-12">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                                <ShieldIcon />
+                            </div>
+                            <h1 className="text-xl font-black text-white italic tracking-tighter">METALINK</h1>
+                        </div>
+                        <button onClick={() => setIsAuthenticated(false)} className="p-3 bg-white/5 rounded-xl text-slate-400 hover:text-rose-500 transition-all">
+                            <LogoutIcon />
+                        </button>
+                    </header>
+
+                    <main className="max-w-6xl mx-auto">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
+                            <div>
+                                <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Dashboard</h2>
+                                <p className="text-slate-500 text-sm italic">Kelola aset tautan digital terenkripsi Anda secara aman.</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(true)} className="w-full md:w-auto bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-2">
+                                <PlusIcon /> TAMBAH LINK
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                                <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Mengambil Data...</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {links.length === 0 && (
+                                    <div className="col-span-full border-2 border-dashed border-white/5 rounded-3xl p-12 text-center text-slate-600 italic">
+                                        Belum ada link yang tersimpan di vault ini.
+                                    </div>
+                                )}
+                                {links.map(link => (
+                                    <div key={link.id} className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] hover:border-blue-500 transition-all group overflow-hidden relative">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-500 font-black text-xl border border-blue-500/20">
+                                                {link.title.charAt(0).toUpperCase()}
+                                            </div>
+                                            <button 
+                                                onClick={() => handleDelete(link.id)}
+                                                className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{link.title}</h3>
+                                        <p className="text-sm text-slate-500 mb-6 h-10 italic line-clamp-2 leading-relaxed">
+                                            {link.description || "Tidak ada deskripsi tersedia."}
+                                        </p>
+                                        <a href={link.url} target="_blank" className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 group-hover:bg-blue-600 rounded-2xl text-[10px] font-black tracking-widest transition-all">
+                                            BUKA TAUTAN
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-[#0d0d12] w-full max-w-md rounded-[2.5rem] p-8 border border-white/10 shadow-2xl">
+                                <div className="flex justify-between items-center mb-8 text-white">
+                                    <h2 className="text-2xl font-black italic uppercase tracking-tighter">Tambah Tautan</h2>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white"><CloseIcon /></button>
+                                </div>
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest ml-2">Label Link</label>
+                                        <input required placeholder="Nama Tautan" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:border-blue-500 outline-none transition-all" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest ml-2">Alamat URL</label>
+                                        <input required placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:border-blue-500 outline-none transition-all" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest ml-2">Deskripsi</label>
+                                        <textarea placeholder="Keterangan singkat..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white h-24 focus:border-blue-500 outline-none transition-all resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                                    </div>
+                                    <div className="flex gap-4 pt-4">
+                                        <button type="submit" className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black text-white tracking-widest text-xs uppercase transition-all">SIMPAN ASET</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{link.title}</h3>
-                <p className="text-sm text-slate-500 mb-6 h-10 overflow-hidden italic line-clamp-2 leading-relaxed">
-                  {link.description || "Tidak ada deskripsi tersedia untuk tautan ini."}
-                </p>
-                <a 
-                  href={link.url} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="flex items-center justify-center gap-2 w-full py-4 bg-white/5 group-hover:bg-blue-600 rounded-2xl text-center text-sm font-black tracking-widest transition-all"
-                >
-                  BUKA TAUTAN <ChevronRight size={16} />
-                </a>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
+            );
+        };
 
-      {/* Modal Input Tautan */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0d0d12] w-full max-w-md rounded-[2.5rem] p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Tambah Aset</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Label Link</label>
-                <input 
-                  required 
-                  placeholder="Contoh: GitHub Repository" 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all" 
-                  value={formData.title} 
-                  onChange={e => setFormData({...formData, title: e.target.value})} 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Alamat URL</label>
-                <input 
-                  required 
-                  type="url"
-                  placeholder="https://..." 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all font-mono text-sm" 
-                  value={formData.url} 
-                  onChange={e => setFormData({...formData, url: e.target.value})} 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Deskripsi (Opsional)</label>
-                <textarea 
-                  placeholder="Apa isi dari link ini?" 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:border-blue-500 transition-all h-28 resize-none" 
-                  value={formData.description} 
-                  onChange={e => setFormData({...formData, description: e.target.value})} 
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black uppercase tracking-widest transition-all text-xs"
-                >
-                  BATAL
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase tracking-widest transition-all text-xs shadow-lg shadow-blue-600/20"
-                >
-                  SIMPAN
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default App;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
