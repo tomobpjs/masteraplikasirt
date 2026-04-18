@@ -1,450 +1,458 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  signInWithCustomToken, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  collection, 
-  query,
-  updateDoc,
-  deleteDoc,
-  addDoc
-} from 'firebase/firestore';
-import { 
-  Plus, 
-  Settings, 
-  ExternalLink, 
-  Trash2, 
-  Edit3, 
-  LayoutGrid, 
-  Globe, 
-  X, 
-  Save,
-  Zap,
-  Shield,
-  Layers,
-  Search,
-  User,
-  Type,
-  Clock,
-  Calendar,
-  Music,
-  Play,
-  Pause,
-  SkipForward,
-  Volume2
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Web Portal Hub v4 - Cloud Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-// --- Firebase Configuration ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
-  authDomain: "sarpras-846ad.firebaseapp.com",
-  projectId: "sarpras-846ad",
-  storageBucket: "sarpras-846ad.firebasestorage.app",
-  messagingSenderId: "1048448341234",
-  appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
-  measurementId: "G-2DPVT5MLE5"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'nexus-dashboard-v2';
-
-const App = () => {
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('home');
-  const [showModal, setShowModal] = useState(false);
-  const [editingLink, setEditingLink] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dateTime, setDateTime] = useState(new Date());
-  const [isLoading, setIsLoading] = useState(true);
-
-  // App State
-  const [marqueeText, setMarqueeText] = useState('Initializing Secure Connection...');
-  const [links, setLinks] = useState([]);
-  const [formData, setFormData] = useState({ title: '', url: '', color: 'from-indigo-500 to-purple-500', icon: 'zap' });
-
-  // Music Player State (Local Mock)
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState("Lofi Cyberpunk - Sector 7");
-
-  // 1. Authentication Lifecycle
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top left, #1a1a2e, #16213e, #0f3460);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
-      } catch (err) {
-        console.error("Auth error:", err);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
 
-  // 2. Real-time Data Sync (Firestore)
-  useEffect(() => {
-    if (!user) return;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-    // Sync Links
-    const linksRef = collection(db, 'artifacts', appId, 'users', user.uid, 'links');
-    const unsubscribeLinks = onSnapshot(linksRef, (snapshot) => {
-      const linksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLinks(linksData);
-      setIsLoading(false);
-    }, (error) => console.error("Firestore Links Error:", error));
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
 
-    // Sync Settings (Marquee)
-    const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'profile');
-    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setMarqueeText(docSnap.data().marquee || '');
-      } else {
-        // Initial Seed
-        setDoc(settingsRef, { marquee: 'Welcome to Nexus Command Center. Secure protocol active.' });
-      }
-    }, (error) => console.error("Firestore Settings Error:", error));
+        .marquee-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
 
-    return () => {
-      unsubscribeLinks();
-      unsubscribeSettings();
-    };
-  }, [user]);
+        .marquee-content {
+            display: inline-block;
+            animation: marquee 30s linear infinite;
+        }
 
-  // 3. Time Sync
-  useEffect(() => {
-    const timer = setInterval(() => setDateTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
 
-  // Actions
-  const handleSaveLink = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'links');
-    
-    try {
-      if (editingLink) {
-        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'links', editingLink.id);
-        await updateDoc(docRef, formData);
-      } else {
-        await addDoc(collectionRef, formData);
-      }
-      closeModal();
-    } catch (err) {
-      console.error("Save error:", err);
-    }
-  };
+        .clock-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-  const handleDeleteLink = async (id) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'links', id));
-    } catch (err) {
-      console.error("Delete error:", err);
-    }
-  };
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
 
-  const handleUpdateMarquee = async (val) => {
-    setMarqueeText(val);
-    if (!user) return;
-    const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'profile');
-    await updateDoc(settingsRef, { marquee: val });
-  };
+        .modal.active {
+            display: flex;
+        }
 
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingLink(null);
-    setFormData({ title: '', url: '', color: 'from-indigo-500 to-purple-500', icon: 'zap' });
-  };
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 15px;
+            color: white;
+            width: 100%;
+            outline: none;
+            transition: 0.3s;
+        }
 
-  const startEdit = (link) => {
-    setEditingLink(link);
-    setFormData(link);
-    setShowModal(true);
-  };
+        .input-field:focus {
+            border-color: #6366f1;
+            background: rgba(255, 255, 255, 0.1);
+        }
 
-  const filteredLinks = links.filter(l => l.title?.toLowerCase().includes(searchQuery.toLowerCase()));
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-  const gradientOptions = [
-    'from-indigo-500 to-purple-500',
-    'from-emerald-500 to-teal-400',
-    'from-rose-500 to-orange-400',
-    'from-cyan-500 to-blue-500',
-    'from-amber-400 to-orange-600',
-    'from-pink-500 to-rose-600'
-  ];
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
 
-  const getIcon = (name, size = 24) => {
-    switch(name) {
-      case 'zap': return <Zap size={size} />;
-      case 'shield': return <Shield size={size} />;
-      case 'layers': return <Layers size={size} />;
-      default: return <Globe size={size} />;
-    }
-  };
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-  const dateString = dateTime.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase();
-  const timeString = dateTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 8px;
+            border-radius: 10px;
+            transition: 0.3s;
+        }
 
-  if (!user) return (
-    <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-            <Zap className="animate-pulse text-indigo-500" size={48} />
-            <p className="text-indigo-400 font-mono text-xs tracking-widest uppercase">Securing Connection...</p>
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+            transform: scale(1.05);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-up { animation: fadeInUp 0.5s ease forwards; }
+    </style>
+</head>
+<body class="custom-scrollbar">
+
+    <!-- Top Marquee -->
+    <div class="marquee-container sticky top-0 z-50">
+        <div class="marquee-content text-sm font-medium tracking-wide">
+            <span class="mx-4">🚀 Selamat Datang</span>
+            <span class="mx-4 text-blue-400">|</span>
+            <span class="mx-4">Di Pusat Aplikasi Terintegrasi Bagian Rumah Tangga</span>
+            <span class="mx-4 text-purple-400">|</span>
+            <span class="mx-4">RSU DADI KELUARGA PURWOKERTO</span>
         </div>
     </div>
-  );
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30 overflow-x-hidden font-['Inter',sans-serif]">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&family=Outfit:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
-        h1, h2, h3, .font-premium { font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
-        .font-mono-premium { font-family: 'Space Grotesk', monospace; }
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { animation: marquee 30s linear infinite; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
-      `}} />
-
-      {/* Dynamic Background */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-
-      {/* Global Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex flex-col pointer-events-none">
-        <div className="h-8 bg-[#0a0a0c]/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-end px-6 pointer-events-auto">
-          <div className="flex items-center gap-6 font-mono-premium text-[10px] tracking-widest font-bold">
-            <div className="flex items-center gap-2 text-slate-400">
-              <Calendar size={12} className="text-indigo-500" />
-              <span>{dateString}</span>
-            </div>
-            <div className="flex items-center gap-2 text-indigo-400">
-              <Clock size={12} />
-              <span>{timeString}</span>
-            </div>
-          </div>
+    <!-- Cloud Status Indicator -->
+    <div class="fixed top-16 right-8 z-40">
+        <div id="cloud-status" class="glass-card px-4 py-2 flex items-center gap-3 text-xs font-medium">
+            <i id="status-icon" class="fas fa-circle-notch fa-spin text-blue-400"></i>
+            <span id="status-text">Memulai Firebase...</span>
         </div>
-        <div className="h-6 bg-indigo-600/10 backdrop-blur-md border-b border-white/5 flex items-center overflow-hidden pointer-events-auto">
-          <div className="flex whitespace-nowrap animate-marquee">
-            <span className="mx-12 text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest">
-              {marqueeText} • SESSION_ID: {user.uid} • SYSTEM_ONLINE • 
-            </span>
-            <span className="mx-12 text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest">
-              {marqueeText} • SESSION_ID: {user.uid} • SYSTEM_ONLINE • 
-            </span>
-          </div>
-        </div>
-      </div>
+    </div>
 
-      {/* Sidebar */}
-      <nav className="fixed left-0 top-0 h-full w-20 lg:w-72 bg-[#0d0d10] border-r border-white/5 flex flex-col z-[60] transition-all">
-        <div className="p-8 flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-            <Zap size={24} fill="currentColor" />
-          </div>
-          <span className="hidden lg:block font-black text-2xl tracking-tighter font-premium">NEXUS</span>
-        </div>
+    <!-- Settings Trigger -->
+    <button id="settings-btn" onclick="toggleModal()" class="fixed bottom-8 right-8 w-14 h-14 glass-card flex items-center justify-center text-2xl z-50 hover:rotate-90 transition-transform duration-500">
+        <i class="fas fa-cog text-blue-400"></i>
+    </button>
 
-        <div className="flex-1 px-4 py-10 space-y-2">
-          <button onClick={() => setActiveTab('home')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === 'home' ? 'bg-white/5 text-white shadow-inner' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
-            <LayoutGrid size={20} />
-            <span className="hidden lg:block font-bold">Dashboard</span>
-          </button>
-          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-white/5 text-white shadow-inner' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}>
-            <Settings size={20} />
-            <span className="hidden lg:block font-bold">Config</span>
-          </button>
-        </div>
-
-        {/* Music Player Mini */}
-        <div className="p-4 mt-auto">
-            <div className="hidden lg:block p-5 bg-white/5 border border-white/10 rounded-3xl mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <Music size={14} className="text-indigo-400" />
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Neural Audio</span>
-                </div>
-                <p className="text-[11px] font-bold text-white truncate mb-4">{currentTrack}</p>
-                <div className="flex items-center justify-between">
-                    <button className="text-slate-500 hover:text-white transition-colors"><SkipForward size={16} className="rotate-180" /></button>
-                    <button onClick={() => setIsPlaying(!isPlaying)} className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 hover:scale-105 transition-transform">
-                        {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-1" />}
-                    </button>
-                    <button className="text-slate-500 hover:text-white transition-colors"><SkipForward size={16} /></button>
-                </div>
-            </div>
-            
-            <div className="flex items-center gap-3 px-4 py-4 bg-indigo-500/10 rounded-2xl">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="hidden lg:block text-[10px] font-bold text-indigo-400 uppercase tracking-widest truncate">{user.uid.slice(0, 12)}...</span>
+    <main class="container mx-auto px-6 py-12 flex flex-col items-center">
+        
+        <!-- Header & Clock -->
+        <div class="text-center mb-16">
+            <h1 class="text-5xl font-bold mb-4 tracking-tight">Integrated Application Center <span class="text-blue-500">Bagian Rumah Tangga</span></h1>
+            <div id="datetime" class="glass-card px-8 py-4 inline-block">
+                <p id="clock" class="text-4xl font-bold clock-gradient mb-1">00:00:00</p>
+                <p id="date" class="text-gray-400 text-sm font-light uppercase tracking-widest">Memuat Tanggal...</p>
             </div>
         </div>
-      </nav>
 
-      {/* Main Content */}
-      <main className="ml-20 lg:ml-72 p-6 lg:p-16 pt-32 min-h-screen">
-        <div className="max-w-7xl mx-auto">
-            
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+        <!-- Links Grid Container -->
+        <div id="links-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
+            <!-- Dinamis lewat JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden text-center py-20">
+            <i class="fas fa-link-slash text-6xl text-gray-700 mb-4"></i>
+            <p class="text-gray-500 italic">Belum ada tautan. Silakan tambah melalui pengaturan.</p>
+        </div>
+
+        <footer class="mt-20 text-gray-500 text-sm text-center">
+            <p>&copy; 2026 By:Tomosjr. Sistem Cloud Kustom.</p>
+            <p id="user-id-display" class="mt-2 text-[10px] opacity-30 italic"></p>
+        </footer>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="glass-card p-8 w-full max-w-2xl max-h-[85vh] flex flex-col m-4 overflow-hidden">
+            <div class="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-5xl lg:text-7xl font-black text-white mb-4 tracking-tighter">
-                        {activeTab === 'home' ? 'Integrated Application Center' : 'Integrated Application Center'}
-                    </h1>
-                    <p className="text-slate-500 text-lg font-light">Bagian Rumah Tangga RSU Dadai Keluarga.</p>
+                    <h2 class="text-2xl font-bold">Manajemen Cloud</h2>
+                    <p class="text-gray-400 text-sm">Perubahan akan langsung tersimpan ke Firebase Anda</p>
                 </div>
-                <div className="relative">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                    <input 
-                        type="text" 
-                        placeholder="Filter Nodes..." 
-                        className="bg-[#111114] border border-white/5 rounded-2xl py-4 pl-14 pr-8 w-full md:w-80 outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all text-sm"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-            </header>
+                <button onclick="toggleModal()" class="text-gray-400 hover:text-white transition-colors p-2">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <div id="settings-list" class="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                <!-- Form Inputs -->
+            </div>
 
-            {activeTab === 'home' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {filteredLinks.map((link) => (
-                        <div key={link.id} className="group relative bg-[#111114] border border-white/5 rounded-[2.5rem] p-8 hover:bg-[#141418] transition-all duration-500 shadow-2xl overflow-hidden">
-                            <div className={`absolute -right-10 -bottom-10 w-40 h-40 bg-gradient-to-br ${link.color} opacity-5 blur-[80px] group-hover:opacity-20 transition-opacity rounded-full`}></div>
-                            
-                            <div className={`w-14 h-14 bg-gradient-to-br ${link.color} rounded-2xl flex items-center justify-center text-white mb-10 shadow-lg group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500`}>
-                                {getIcon(link.icon, 28)}
-                            </div>
-                            
-                            <h3 className="text-2xl font-bold text-white mb-2">{link.title}</h3>
-                            <p className="text-slate-500 text-xs font-mono mb-8 truncate opacity-60">{link.url.replace('https://', '')}</p>
-                            
-                            <div className="flex items-center justify-between">
-                                <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[10px] font-bold text-indigo-400 uppercase tracking-widest hover:text-white transition-colors">
-                                    Initialize <ExternalLink size={12} />
-                                </a>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => startEdit(link)} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400"><Edit3 size={14} /></button>
-                                    <button onClick={() => handleDeleteLink(link.id)} className="p-2 bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 rounded-lg text-slate-400"><Trash2 size={14} /></button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-
-                    <button onClick={() => { setShowModal(true); setEditingLink(null); }} className="border-2 border-dashed border-white/5 rounded-[2.5rem] p-8 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/30 hover:bg-white/[0.02] transition-all min-h-[280px]">
-                        <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center text-slate-500">
-                            <Plus size={32} />
-                        </div>
-                        <span className="font-bold text-slate-500 uppercase tracking-widest text-[10px]">Add Interface</span>
+            <div class="mt-8 pt-6 border-t border-white/10 flex flex-wrap gap-4 justify-between items-center">
+                <button onclick="addNewLink()" class="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Tambah Baru
+                </button>
+                <div class="flex gap-4">
+                    <button onclick="toggleModal()" class="px-6 py-2 text-gray-400 hover:text-white transition-colors">Batal</button>
+                    <button id="save-btn" onclick="saveLinks()" class="btn-primary">
+                        <span id="save-text">Simpan ke Cloud</span>
                     </button>
                 </div>
-            )}
-
-            {activeTab === 'settings' && (
-                <div className="max-w-4xl space-y-12">
-                    <section className="bg-[#111114] border border-white/5 rounded-[3rem] p-10">
-                        <div className="flex items-center gap-4 mb-8">
-                            <Type className="text-indigo-500" />
-                            <h2 className="text-2xl font-bold">Broadcast Subsystem</h2>
-                        </div>
-                        <textarea 
-                            className="w-full bg-black/40 border border-white/5 rounded-3xl p-6 outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all text-white min-h-[140px] resize-none text-lg font-light leading-relaxed"
-                            value={marqueeText}
-                            onChange={(e) => handleUpdateMarquee(e.target.value)}
-                            placeholder="Input broadcast parameters..."
-                        />
-                        <p className="mt-4 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Changes are synced to the neural network in real-time.</p>
-                    </section>
-
-                    <section className="bg-[#111114] border border-white/5 rounded-[3rem] p-10">
-                         <div className="flex items-center gap-4 mb-8">
-                            <Shield className="text-indigo-500" />
-                            <h2 className="text-2xl font-bold">User Identity</h2>
-                        </div>
-                        <div className="flex flex-col gap-6">
-                            <div className="flex items-center justify-between p-6 bg-black/20 rounded-2xl border border-white/5">
-                                <span className="text-slate-500 font-mono text-sm uppercase tracking-widest">UID</span>
-                                <span className="text-indigo-400 font-mono text-sm">{user.uid}</span>
-                            </div>
-                            <div className="flex items-center justify-between p-6 bg-black/20 rounded-2xl border border-white/5">
-                                <span className="text-slate-500 font-mono text-sm uppercase tracking-widest">STATUS</span>
-                                <span className="text-emerald-500 font-mono text-sm font-bold">VERIFIED_OPERATOR</span>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            )}
-        </div>
-      </main>
-
-      {/* Modal - Node Registry */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-6">
-          <div className="bg-[#0d0d10] border border-white/10 w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-12">
-              <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black tracking-tighter">{editingLink ? 'MODIFY NODE' : 'INIT NODE'}</h2>
-                <button onClick={closeModal} className="p-3 bg-white/5 rounded-2xl text-slate-500 hover:text-white"><X size={20} /></button>
-              </div>
-
-              <form onSubmit={handleSaveLink} className="space-y-8">
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Alias</label>
-                        <input required className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 outline-none focus:ring-1 focus:ring-indigo-500 transition-all" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Type</label>
-                        <select className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 outline-none text-white appearance-none" value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})}>
-                            <option value="zap">ZAP_IO</option>
-                            <option value="globe">WEB_NET</option>
-                            <option value="shield">SECURE_L</option>
-                            <option value="layers">ARRAY_X</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Endpoint URL</label>
-                    <input required type="url" className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-sm" value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} />
-                </div>
-
-                <div className="space-y-4">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-2">Atmospheric Glow</label>
-                    <div className="grid grid-cols-6 gap-3">
-                        {gradientOptions.map(grad => (
-                            <button key={grad} type="button" onClick={() => setFormData({...formData, color: grad})} className={`h-12 rounded-xl bg-gradient-to-br ${grad} transition-all ${formData.color === grad ? 'ring-2 ring-white ring-offset-4 ring-offset-[#0d0d10] scale-90' : 'opacity-40 hover:opacity-100'}`} />
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex gap-4 pt-6">
-                    <button type="button" onClick={closeModal} className="flex-1 py-5 bg-white/5 hover:bg-white/10 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-slate-500">Abort</button>
-                    <button type="submit" className="flex-[2] py-5 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-[10px] uppercase tracking-widest text-white shadow-xl shadow-indigo-600/20">Commit Changes</button>
-                </div>
-              </form>
             </div>
-          </div>
         </div>
-      )}
     </div>
-  );
-};
 
-export default App;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi Kustom
+        const firebaseConfig = {
+            apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
+            authDomain: "sarpras-846ad.firebaseapp.com",
+            projectId: "sarpras-846ad",
+            storageBucket: "sarpras-846ad.firebasestorage.app",
+            messagingSenderId: "1048448341234",
+            appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
+            measurementId: "G-2DPVT5MLE5"
+        };
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'portal-hub-v4';
+
+        const statusText = document.getElementById('status-text');
+        const statusIcon = document.getElementById('status-icon');
+        const saveBtn = document.getElementById('save-btn');
+        const saveText = document.getElementById('save-text');
+
+        let app, auth, db, user;
+        let webLinks = [];
+
+        async function startApp() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // FIX: Gunakan signInAnonymously JIKA menggunakan config kustom.
+                // Custom Token dari lingkungan Canvas TIDAK VALID untuk proyek Firebase luar.
+                const initAuth = async () => {
+                    // Cek apakah config saat ini adalah milik sistem atau kustom
+                    const isSystemConfig = typeof __firebase_config !== 'undefined' && 
+                                         JSON.parse(__firebase_config).projectId === firebaseConfig.projectId;
+
+                    if (isSystemConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        // Untuk config kustom, WAJIB aktifkan Anonymous Auth di Firebase Console
+                        await signInAnonymously(auth);
+                    }
+                };
+                
+                initAuth().catch(err => {
+                    console.error("Auth Failure:", err);
+                    updateStatus("Auth Fail: Aktifkan Anon di Console", "fa-exclamation-circle", "text-red-500");
+                });
+
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (user) {
+                        document.getElementById('user-id-display').textContent = `User UID: ${user.uid}`;
+                        setupCloudListener();
+                    }
+                });
+
+            } catch (err) {
+                console.error("Init Error:", err);
+                updateStatus("Gagal Inisialisasi", "fa-times-circle", "text-red-500");
+            }
+        }
+
+        function setupCloudListener() {
+            if (!user) return;
+            
+            // Path Firestore Rule 1
+            const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'links');
+            
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    webLinks = docSnap.data().list || [];
+                } else {
+                    // Default links jika data belum ada di Cloud
+                    webLinks = [
+                        { name: "Google", desc: "Mesin Pencari", url: "https://google.com", icon: "fab fa-google", color: "red" },
+                        { name: "GitHub", desc: "Pusat Kode", url: "https://github.com", icon: "fab fa-github", color: "white" }
+                    ];
+                    saveToCloud(webLinks);
+                }
+                window.renderLinks();
+                updateStatus("Cloud Terhubung", "fa-cloud-check", "text-emerald-400");
+            }, (error) => {
+                console.error("Sync Error:", error);
+                if (error.code === 'permission-denied') {
+                    updateStatus("Cek Firestore Rules!", "fa-lock", "text-orange-400");
+                } else {
+                    updateStatus("Offline", "fa-cloud-slash", "text-red-400");
+                }
+            });
+        }
+
+        async function saveToCloud(data) {
+            if (!user) return;
+            updateStatus("Sinkronisasi...", "fa-sync fa-spin", "text-blue-400");
+            saveBtn.disabled = true;
+            saveText.textContent = "Proses...";
+
+            try {
+                const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'links');
+                await setDoc(userDocRef, { list: data, lastUpdated: new Date() });
+                updateStatus("Tersimpan", "fa-cloud-check", "text-emerald-400");
+            } catch (error) {
+                console.error("Save Error:", error);
+                updateStatus("Gagal Simpan", "fa-times-circle", "text-red-400");
+            } finally {
+                saveBtn.disabled = false;
+                saveText.textContent = "Simpan ke Cloud";
+            }
+        }
+
+        function updateStatus(text, iconClass, colorClass) {
+            statusText.textContent = text;
+            statusIcon.className = `fas ${iconClass} ${colorClass}`;
+        }
+
+        // --- Render UI ---
+        window.renderLinks = () => {
+            const grid = document.getElementById('links-grid');
+            const emptyState = document.getElementById('empty-state');
+            grid.innerHTML = '';
+            
+            if (webLinks.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            webLinks.forEach((link, index) => {
+                const colorMap = {
+                    red: 'text-red-500 bg-red-500/20',
+                    white: 'text-white bg-white/10',
+                    blue: 'text-blue-400 bg-blue-400/20',
+                    emerald: 'text-emerald-500 bg-emerald-500/20'
+                };
+
+                const cardHtml = `
+                    <a href="${link.url}" target="_blank" class="glass-card p-8 flex items-center space-x-6 group animate-fade-up" style="animation-delay: ${index * 0.05}s">
+                        <div class="w-16 h-16 ${colorMap[link.color] || colorMap.white} rounded-2xl flex items-center justify-center text-3xl transition-transform group-hover:scale-110">
+                            <i class="${link.icon || 'fas fa-link'}"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h3 class="text-xl font-semibold truncate">${link.name}</h3>
+                            <p class="text-gray-400 text-sm truncate">${link.desc}</p>
+                        </div>
+                    </a>
+                `;
+                grid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        };
+
+        window.renderSettings = () => {
+            const settingsList = document.getElementById('settings-list');
+            settingsList.innerHTML = '';
+
+            webLinks.forEach((link, index) => {
+                const settingHtml = `
+                    <div class="p-5 border border-white/10 rounded-2xl space-y-4 bg-white/5 relative">
+                        <div class="flex justify-between items-center">
+                            <span class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest">Link #${index + 1}</span>
+                            <button onclick="removeLink(${index})" class="btn-danger flex items-center gap-1 text-xs">
+                                <i class="fas fa-trash-alt"></i> Hapus
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1 px-1 uppercase font-semibold">Nama Situs</label>
+                                <input type="text" value="${link.name}" class="input-field edit-name" placeholder="Nama Situs">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-400 block mb-1 px-1 uppercase font-semibold">URL Alamat</label>
+                                <input type="text" value="${link.url}" class="input-field edit-url" placeholder="https://...">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400 block mb-1 px-1 uppercase font-semibold">Deskripsi</label>
+                            <input type="text" value="${link.desc}" class="input-field edit-desc" placeholder="Deskripsi Singkat">
+                        </div>
+                    </div>
+                `;
+                settingsList.insertAdjacentHTML('beforeend', settingHtml);
+            });
+        };
+
+        window.addNewLink = () => {
+            webLinks.push({ name: "Baru", desc: "Deskripsi", url: "https://", icon: "fas fa-link", color: "white" });
+            window.renderSettings();
+            const list = document.getElementById('settings-list');
+            setTimeout(() => list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' }), 50);
+        };
+
+        window.removeLink = (index) => {
+            webLinks.splice(index, 1);
+            window.renderSettings();
+        };
+
+        window.saveLinks = async () => {
+            const names = document.querySelectorAll('.edit-name');
+            const urls = document.querySelectorAll('.edit-url');
+            const descs = document.querySelectorAll('.edit-desc');
+
+            const updatedLinks = [];
+            names.forEach((el, index) => {
+                updatedLinks.push({
+                    name: el.value || "Tautan",
+                    url: urls[index].value || "#",
+                    desc: descs[index].value || "Koleksi Favorit",
+                    icon: webLinks[index]?.icon || "fas fa-link",
+                    color: webLinks[index]?.color || "white"
+                });
+            });
+
+            webLinks = updatedLinks;
+            await saveToCloud(webLinks);
+            window.toggleModal();
+        };
+
+        window.toggleModal = () => {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.toggle('active');
+            if(modal.classList.contains('active')) window.renderSettings();
+        };
+
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('id-ID', { hour12: false });
+            document.getElementById('date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }, 1000);
+
+        startApp();
+    </script>
+</body>
+</html>
