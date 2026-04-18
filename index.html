@@ -229,7 +229,16 @@
 
         // Konfigurasi Cloud
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'portal-rsu-dadi';
-        const firebaseConfig = JSON.parse(__firebase_config);
+        const firebaseConfig = {
+  apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
+  authDomain: "sarpras-846ad.firebaseapp.com",
+  projectId: "sarpras-846ad",
+  storageBucket: "sarpras-846ad.firebasestorage.app",
+  messagingSenderId: "1048448341234",
+  appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
+  measurementId: "G-2DPVT5MLE5"
+};
+
         
         let app, auth, db, user;
         let webLinks = [];
