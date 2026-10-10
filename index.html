@@ -95,6 +95,7 @@
             transition: 0.3s;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             color: white;
         }
@@ -141,12 +142,16 @@
         </div>
     </div>
 
-    <!-- Indikator Status Cloud -->
-    <div class="fixed top-20 right-8 z-40">
-        <div id="sync-indicator" class="glass-card px-4 py-2 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider">
+    <!-- Indikator Status Cloud & Tombol Auth -->
+    <div class="fixed top-20 right-8 z-40 flex items-center gap-3">
+        <div id="sync-indicator" class="glass-card px-4 py-2 hidden md:flex items-center gap-3 text-xs font-semibold uppercase tracking-wider">
             <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
             <span id="status-text">Menghubungkan...</span>
         </div>
+        <button id="auth-btn" onclick="toggleAuthModal()" class="glass-card px-4 py-2 flex items-center gap-2 text-xs font-semibold text-indigo-300 hover:text-white transition-all">
+            <i class="fas fa-user-circle text-base"></i>
+            <span id="auth-btn-text">Login Email</span>
+        </button>
     </div>
 
     <!-- Tombol Pengaturan -->
@@ -191,6 +196,50 @@
         </footer>
     </main>
 
+    <!-- Modal Login / Register Firebase Email -->
+    <div id="authModal" class="modal">
+        <div class="glass-card p-8 w-full max-w-md flex flex-col m-4 shadow-2xl border-white/20">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 id="auth-modal-title" class="text-2xl font-bold mb-1">Login Akun</h2>
+                    <p id="auth-modal-desc" class="text-slate-400 text-sm">Masuk dengan email dan password Anda.</p>
+                </div>
+                <button onclick="toggleAuthModal()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Pesan Error / Info Auth -->
+            <div id="auth-message" class="hidden mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-200 text-xs"></div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Email</label>
+                    <input type="email" id="auth-email" required class="input-field text-sm" placeholder="nama@rsudadikeluarga.co.id">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Password</label>
+                    <input type="password" id="auth-password" required minlength="6" class="input-field text-sm" placeholder="••••••••">
+                </div>
+                
+                <button type="submit" id="auth-submit-btn" class="btn-primary w-full mt-2">
+                    <i class="fas fa-sign-in-alt"></i> Masuk Sekarang
+                </button>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-white/10 text-center text-xs">
+                <span id="auth-switch-text" class="text-slate-400">Belum punya akun?</span>
+                <button onclick="switchAuthMode()" id="auth-switch-btn" class="text-indigo-400 font-semibold ml-1 hover:underline">Daftar di sini</button>
+            </div>
+            
+            <div id="logout-container" class="hidden mt-6 pt-4 border-t border-white/10">
+                <button onclick="handleLogout()" class="btn-danger w-full py-3 flex items-center justify-center gap-2 font-semibold">
+                    <i class="fas fa-sign-out-alt"></i> Keluar dari Akun Ini
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Pengaturan -->
     <div id="settingsModal" class="modal">
         <div class="glass-card p-8 w-full max-w-3xl max-h-[90vh] flex flex-col m-4 shadow-2xl border-white/20">
@@ -224,30 +273,33 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Konfigurasi Cloud
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'portal-rsu-dadi';
         const firebaseConfig = {
-  apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
-  authDomain: "sarpras-846ad.firebaseapp.com",
-  projectId: "sarpras-846ad",
-  storageBucket: "sarpras-846ad.firebasestorage.app",
-  messagingSenderId: "1048448341234",
-  appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
-  measurementId: "G-2DPVT5MLE5"
-};
-
+            apiKey: "AIzaSyCc78gnniFFa-wCaP5-Febi8FpJgAEZKss",
+            authDomain: "sarpras-846ad.firebaseapp.com",
+            projectId: "sarpras-846ad",
+            storageBucket: "sarpras-846ad.firebasestorage.app",
+            messagingSenderId: "1048448341234",
+            appId: "1:1048448341234:web:ab89ef5455222b9ed36c6b",
+            measurementId: "G-2DPVT5MLE5"
+        };
         
         let app, auth, db, user;
         let webLinks = [];
+        let isRegisterMode = false;
 
         // UI Refs
         const statusText = document.getElementById('status-text');
         const statusDot = document.getElementById('status-dot');
         const saveBtn = document.getElementById('save-btn');
         const debugInfo = document.getElementById('debug-info');
+        const authBtnText = document.getElementById('auth-btn-text');
+        const authModal = document.getElementById('authModal');
+        const authMessage = document.getElementById('auth-message');
 
         // Fungsi Memulai Firebase
         async function initCloud() {
@@ -256,11 +308,14 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                // Cek status autentikasi awal (jika sudah ada token custom atau anonymous/tersimpan)
                 const attemptSignIn = async (retries = 0) => {
                     try {
+                        if (auth.currentUser) return; // Sudah login
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                         } else {
+                            // Default fallback anonymous jika belum login email
                             await signInAnonymously(auth);
                         }
                     } catch (err) {
@@ -277,8 +332,19 @@
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if (user) {
-                        debugInfo.textContent = `Aktif Sebagai: ${user.uid.substring(0,8)}...`;
+                        const isAnonymous = user.isAnonymous;
+                        const identifier = isAnonymous ? `Anonim (${user.uid.substring(0,6)})` : user.email;
+                        debugInfo.textContent = `Aktif Sebagai: ${identifier}`;
+                        
+                        if (isAnonymous) {
+                            authBtnText.textContent = "Login Email";
+                        } else {
+                            authBtnText.textContent = user.email.split('@')[0];
+                        }
                         setupGlobalSync();
+                    } else {
+                        debugInfo.textContent = "Status: Belum Login";
+                        authBtnText.textContent = "Login Email";
                     }
                 });
 
@@ -287,8 +353,7 @@
             }
         }
 
-        // Jalur Firestore yang benar (6 segmen/segmen genap)
-        // Format: artifacts/{appId}/public/data/collections/documentId
+        // Jalur Firestore Publik
         const getPublicDocRef = () => doc(db, 'artifacts', appId, 'public', 'data', 'web_portal', 'global-links');
 
         // Sinkronisasi Data Publik
@@ -339,7 +404,80 @@
             statusDot.className = `w-2 h-2 rounded-full ${dotClass} ${text.includes('...') ? 'animate-pulse' : ''}`;
         }
 
-        // --- Logika UI ---
+        // --- Logika Autentikasi Email ---
+
+        window.toggleAuthModal = () => {
+            authModal.classList.toggle('active');
+            authMessage.classList.add('hidden');
+            
+            // Atur tampilan modal berdasarkan status login saat ini
+            const isUserLoggedIn = user && !user.isAnonymous;
+            const logoutContainer = document.getElementById('logout-container');
+            const authForm = document.getElementById('auth-form');
+            
+            if (isUserLoggedIn) {
+                document.getElementById('auth-modal-title').textContent = "Profil Akun";
+                document.getElementById('auth-modal-desc').textContent = `Anda masuk sebagai: ${user.email}`;
+                authForm.classList.add('hidden');
+                logoutContainer.classList.remove('hidden');
+            } else {
+                document.getElementById('auth-modal-title').textContent = isRegisterMode ? "Daftar Akun Baru" : "Login Email";
+                document.getElementById('auth-modal-desc').textContent = isRegisterMode ? "Buat akun baru untuk akses terpusat." : "Masuk dengan email dan password Anda.";
+                authForm.classList.remove('hidden');
+                logoutContainer.classList.add('hidden');
+            }
+        };
+
+        window.switchAuthMode = () => {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-modal-title').textContent = isRegisterMode ? "Daftar Akun Baru" : "Login Email";
+            document.getElementById('auth-modal-desc').textContent = isRegisterMode ? "Buat akun baru untuk akses terpusat." : "Masuk dengan email dan password Anda.";
+            document.getElementById('auth-submit-btn').innerHTML = isRegisterMode ? '<i class="fas fa-user-plus"></i> Daftar Sekarang' : '<i class="fas fa-sign-in-alt"></i> Masuk Sekarang';
+            document.getElementById('auth-switch-text').textContent = isRegisterMode ? "Sudah punya akun?" : "Belum punya akun?";
+            document.getElementById('auth-switch-btn').textContent = isRegisterMode ? "Login di sini" : "Daftar di sini";
+            authMessage.classList.add('hidden');
+        };
+
+        window.handleAuthSubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            authMessage.classList.add('hidden');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+            try {
+                if (isRegisterMode) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+                toggleAuthModal();
+                document.getElementById('auth-form').reset();
+            } catch (err) {
+                console.error("Auth Error:", err);
+                authMessage.textContent = "Gagal: " + (err.message || "Periksa kembali email dan password Anda.");
+                authMessage.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = isRegisterMode ? '<i class="fas fa-user-plus"></i> Daftar Sekarang' : '<i class="fas fa-sign-in-alt"></i> Masuk Sekarang';
+            }
+        };
+
+        window.handleLogout = async () => {
+            try {
+                await signOut(auth);
+                // Kembalikan ke anonymous login agar sistem tetap aktif
+                await signInAnonymously(auth);
+                toggleAuthModal();
+            } catch (err) {
+                console.error("Logout Error:", err);
+            }
+        };
+
+        // --- Logika UI Link ---
 
         function renderUI() {
             const grid = document.getElementById('links-grid');
